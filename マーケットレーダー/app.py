@@ -67,7 +67,7 @@ def fetch_stock(ticker: str) -> dict | None:
 # --- UIレイアウト ---
 with st.sidebar:
     st.header("⚙️ 設定")
-    api_key = st.secrets["ANTHROPIC_API_KEY"]
+api_key = st.secrets["ANTHROPIC_API_KEY"]
         "Anthropic APIキー",
         type="password",
         help="anthropic.comで取得したAPIキーを入力"
