@@ -1,42 +1,35 @@
 import streamlit as st
 import anthropic
-import yfinance as yf
-import json
-import plotly.graph_objects as go
-import pandas as pd
+import os
 
-# ページ設定
-st.set_page_config(page_title="マーケット・レーダー", layout="wide")
-st.title("📡 マーケット・レーダー")
+# Page Config
+st.set_page_config(page_title="Market Radar", layout="wide")
+st.title("📡 Market Radar")
 
-# Secretsから安全にAPIキーを取得
+# Load API Key safely
 try:
     api_key = st.secrets["ANTHROPIC_API_KEY"]
 except KeyError:
-    st.error("API Key が設定されていません。Settings > Secrets を確認してください。")
+    st.error("API Key not set in Secrets.")
     st.stop()
 
-# ユーザー入力
-event_input = st.text_input("分析したいニュースイベントを入力")
+# Input
+event_input = st.text_input("Enter a news event to analyze")
 
-if st.button("分析する"):
+if st.button("Analyze"):
     if not event_input:
-        st.warning("イベントを入力してください。")
+        st.warning("Please enter an event.")
     else:
-        st.write(f"📡 「{event_input}」について市場反応を分析中...")
-        
-        # Claude API呼び出しの準備
-        client = anthropic.Anthropic(api_key=api_key)
+        st.write(f"Analyzing: {event_input}...")
         
         try:
-            # 分析のリクエスト
+            client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
                 model="claude-3-5-sonnet-20240620",
                 max_tokens=1000,
-                messages=[{"role": "user", "content": f"{event_input} に関連する上場企業を3つ挙げ、それぞれの市場への影響を簡潔に分析してください。"}]
+                messages=[{"role": "user", "content": f"Analyze the market reaction to: {event_input}"}]
             )
-            # 結果を表示
-            st.markdown("### 分析結果")
+            st.markdown("### Analysis Result")
             st.write(response.content[0].text)
         except Exception as e:
-            st.error(f"分析中にエラーが発生しました: {e}")
+            st.error(f"Error: {e}")
