@@ -20,7 +20,7 @@ if st.button("Analyze"):
         try:
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
-                model="claude-3-5-sonnet-20240620",
+                model="claude-sonnet-4-6",
                 max_tokens=1000,
                 messages=[{"role": "user", "content": f"Analyze: {event_input}"}]
             )
