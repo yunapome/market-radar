@@ -36,14 +36,24 @@ if st.button("市場分析スタート"):
                 "感情的・扇動的な表現は排除してください。"
             )
             response = model.generate_content(prompt)
+           # 【パース処理を安全な形式に修正】
             text = response.text
             
-            # パース処理
-            list_match = re.search(r'\[LIST\](.*?)\[COMMENT\]', text, re.DOTALL)
-            comment_match = re.search(r'\[COMMENT\](.*)', text, re.DOTALL)
+            # タグが見つからない場合に備えて、空文字ではなくデフォルト値を設定
+            list_content = ""
+            comment_content = "分析結果の形式が正しくありませんでした。"
             
-            st.session_state.result = list_match.group(1).strip() if list_match else ""
-            st.session_state.comment = comment_match.group(1).strip() if comment_match else "分析コメントを取得できませんでした。"
+            if "[LIST]" in text and "[COMMENT]" in text:
+                list_match = re.search(r'\[LIST\](.*?)\[COMMENT\]', text, re.DOTALL)
+                comment_match = re.search(r'\[COMMENT\](.*)', text, re.DOTALL)
+                if list_match: list_content = list_match.group(1).strip()
+                if comment_match: comment_content = comment_match.group(1).strip()
+            else:
+                # タグがない場合、全体をコメントとして扱うなどのフォールバック
+                comment_content = text
+            
+            st.session_state.result = list_content
+            st.session_state.comment = comment_content
             st.rerun()
 
 # 入力欄クリアボタン
