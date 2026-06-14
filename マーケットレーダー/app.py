@@ -12,7 +12,7 @@ try:
     
     # 利用可能なモデルから 1.5-flash を探す
     model_name = "gemini-1.5-flash"
-    model = genai.GenerativeModel(model_name)
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
 except KeyError:
     st.error("API Key not found in Secrets.")
     st.stop()
