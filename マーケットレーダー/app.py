@@ -1,23 +1,20 @@
 import streamlit as st
 import google.generativeai as genai
 
-# Page Configuration
 st.set_page_config(page_title="Market Radar", layout="wide")
 st.title("📡 Market Radar (Gemini Ver)")
 
-# Configure Gemini
+# API Key load
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
     
-    # 利用可能なモデルから 1.5-flash を探す
-    model_name = "gemini-1.5-flash"
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
-except KeyError:
-    st.error("API Key not found in Secrets.")
+    # モデル名を指定せず、genaiのデフォルト設定を利用する書き方に変更
+    model = genai.GenerativeModel('gemini-1.5-flash')
+except Exception as e:
+    st.error(f"Configuration Error: {e}")
     st.stop()
 
-# User Input
 event_input = st.text_input("Enter a news event to analyze")
 
 if st.button("Analyze"):
@@ -26,9 +23,9 @@ if st.button("Analyze"):
     else:
         st.write(f"Analyzing: {event_input}...")
         try:
-            # Generate content
-            response = model.generate_content(f"Analyze the market reaction to: {event_input}")
+            # プロンプトの投げ方を少しだけシンプルに
+            response = model.generate_content(event_input)
             st.markdown("### Analysis Result")
             st.write(response.text)
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Analysis Error: {e}")
