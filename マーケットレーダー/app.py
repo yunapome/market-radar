@@ -14,17 +14,20 @@ try:
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
-    st.error("API設定が読み込めません。secretsを確認してください。")
+    st.error("API設定が読み込めません。")
     st.stop()
 
 # セッションステートの初期化
 if "analysis_result" not in st.session_state:
     st.session_state.analysis_result = None
+if "market_comment" not in st.session_state:
+    st.session_state.market_comment = None
 if "cache_results" not in st.session_state:
     st.session_state.cache_results = {}
 
 def clear_data():
     st.session_state.analysis_result = None
+    st.session_state.market_comment = None
     st.session_state.input_text = ""
 
 # 入力フォーム
@@ -34,67 +37,21 @@ event_input = st.text_input("分析したいニュースやキーワードを入
 if st.button("Analyze"):
     if event_input:
         if event_input in st.session_state.cache_results:
-            st.session_state.analysis_result = st.session_state.cache_results[event_input]
+            result = st.session_state.cache_results[event_input]
+            st.session_state.analysis_result = result['list']
+            st.session_state.market_comment = result['comment']
             st.info("キャッシュから結果を表示しました。")
         else:
-            with st.spinner("Analyzing..."):
+            with st.spinner("分析中..."):
                 try:
-                    # ニュースから企業を抽出
-                    prompt = f"「{event_input}」に関連する日本企業を挙げ、必ず「企業名,証券コード(4桁)」の形式でリストアップして。余計な文章は不要。"
-                    response = model.generate_content(prompt)
-                    st.session_state.analysis_result = response.text
-                    st.session_state.cache_results[event_input] = response.text
-                except Exception as e:
-                    st.error("APIの通信制限かエラーが発生しました。少し時間を置いて再試行してください。")
+                    # フラットな視点を求めるプロンプト
+                    prompt = f"""
+                    ニュース「{event_input}」について、以下の形式で出力してください。
+                    余計な前置きは不要です。
 
-# 結果の表示
-if st.session_state.analysis_result:
-    result_text = st.session_state.analysis_result
-    matches = re.findall(r'([^,\n]+),(\d{4})', result_text)
-    
-    if matches:
-        st.markdown("### 関連企業の現在株価")
-        data = []
-        for name, code in matches:
-            try:
-                ticker = yf.Ticker(f"{code}.T")
-                # 比較のために2日分取得
-                info = ticker.history(period="2d")
-                if len(info) >= 2:
-                    current_price = info['Close'].iloc[-1]
-                    prev_close = info['Close'].iloc[-2]
-                    
-                    # 前日比の計算
-                    change_pct = ((current_price - prev_close) / prev_close) * 100
-                    
-                    # トレンド判定
-                    if change_pct > 0:
-                        mark = "↑"
-                    elif change_pct < 0:
-                        mark = "↓"
-                    else:
-                        mark = "-"
-                    
-                    data.append({
-                        "企業名": name.strip(), 
-                        "証券コード": code, 
-                        "現在株価": f"{current_price:.0f}円",
-                        "前日比": f"{change_pct:+.2f}%",
-                        "トレンド": mark
-                    })
-            except Exception:
-                continue
-        
-        if data:
-            # データの表示（st.dataframeでより見やすく）
-            df = pd.DataFrame(data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-    
-    st.markdown("---")
-    st.markdown("### 詳細分析結果")
-    st.write(result_text)
+                    [LIST]
+                    企業名,証券コード(4桁)
+                    (複数あれば改行)
 
-# クリアボタン
-if st.button("クリア"):
-    clear_data()
-    st.rerun()
+                    [COMMENT]
+                    市場への影響を客観的かつ論理的に分析し、200文字以内で要約してください。感情的・扇動的な表現は排除してください
