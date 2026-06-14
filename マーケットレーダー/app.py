@@ -2,7 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 
 st.set_page_config(page_title="Market Radar", layout="wide")
-st.title("📡 Market Radar (Gemini Ver)")
+st.title("📡 Market Radar")
 
 # 成功している設定
 try:
@@ -39,7 +39,7 @@ with col1:
         st.rerun()
 
 with col2:
-    if st.button("Analyze"):
+    if st.button("関連銘柄分析"):
         if not event_input:
             st.warning("Please enter an event.")
         else:
