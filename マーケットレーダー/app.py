@@ -26,9 +26,13 @@ if "cache_results" not in st.session_state:
     st.session_state.cache_results = {}
 
 def clear_data():
-    st.session_state.analysis_result = None
-    st.session_state.market_comment = None
-    st.session_state.input_text = ""
+    # キーを指定して削除することで、Streamlitの混乱を防ぎます
+    if "analysis_result" in st.session_state:
+        st.session_state.analysis_result = None
+    if "market_comment" in st.session_state:
+        st.session_state.market_comment = None
+    if "input_text" in st.session_state:
+        st.session_state.input_text = ""
 
 # 入力フォーム
 event_input = st.text_input("分析したいニュースやキーワードを入力", key="input_text")
@@ -99,6 +103,9 @@ if st.session_state.analysis_result:
     st.markdown("### 市場分析コメント")
     st.write(st.session_state.market_comment)
 
+# クリアボタン
 if st.button("クリア"):
-    clear_data()
+    # 完全に状態を消してからリロードする
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
     st.rerun()
