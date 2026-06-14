@@ -12,18 +12,26 @@ except Exception as e:
     st.error("API設定でエラーが発生しました")
     st.stop()
 
-# セッション状態を使って入力を管理（これがクリアボタンの肝です）
+# --- 入力管理の仕組み ---
+# 「現在の入力内容」をセッションで保持する
 if "user_input" not in st.session_state:
     st.session_state.user_input = ""
 
-# 入力フィールドとクリアボタンの配置
-col1, col2 = st.columns([0.9, 0.1])
+def clear_text():
+    st.session_state.user_input = ""
+
+# 入力欄（値が変わったらセッションに書き込む）
+user_input = st.text_input(
+    "分析したいニュースや銘柄を入力してください", 
+    value=st.session_state.user_input,
+    key="input_field"
+)
+
+# ボタンの配置
+col1, col2 = st.columns([0.1, 0.9])
 with col1:
-    # ユーザーが入力した内容をセッションに反映
-    user_input = st.text_input("分析したいニュースや銘柄を入力してください", value=st.session_state.user_input, key="input_field")
-with col2:
-    # クリアボタンが押されたらセッションを空にして再描画
-    if st.button("×"):
+    if st.button("クリア"):
+        # セッションを空にして、入力欄を更新する
         st.session_state.user_input = ""
         st.rerun()
 
@@ -34,8 +42,6 @@ if st.button("Analyze"):
     else:
         st.write(f"Analyzing: {user_input}...")
         try:
-            # 入力内容を更新
-            st.session_state.user_input = user_input
             response = model.generate_content(user_input)
             st.markdown("### Analysis Result")
             st.write(response.text)
