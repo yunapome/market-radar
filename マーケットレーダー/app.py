@@ -5,38 +5,49 @@ import re
 
 # ページ設定
 st.set_page_config(layout="wide")
-st.title("📡 Market Radar")
+st.title("📡 Market Radar (Robust Connection)")
 
-# --- 接続処理（モデル名を 'gemini-1.5-flash' に統一） ---
-try:
-    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-    # 接続モデルを安定版に指定
-    model = genai.GenerativeModel('gemini-1.5-flash')
-except Exception as e:
-    st.error(f"接続エラー: {e}")
+# --- 安全な接続処理（モデル自動探索） ---
+@st.cache_resource
+def get_model():
+    try:
+        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+        # 利用可能なモデルをAPIから自動取得
+        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # 'gemini' を含むモデルを探し、なければ最初に見つかったものを使う
+        target_model = next((m for m in models if 'gemini' in m), models[0])
+        return genai.GenerativeModel(target_model)
+    except Exception as e:
+        return None
 
-# --- UIとクリア処理 ---
+model = get_model()
+
+# --- 状態管理 ---
 if "input_key" not in st.session_state: st.session_state.input_key = 0
+if "last_result" not in st.session_state: st.session_state.last_result = None
+
+# --- UI構築 ---
 event_input = st.text_input("分析したいニュースやキーワードを入力", key=f"input_{st.session_state.input_key}")
 
 if st.button("市場分析スタート"):
-    if event_input:
-        # ここでAPIを呼び出しますが、失敗してもアプリが落ちないようにガードします
-        try:
-            # 分析プロンプト（必要に応じて調整してください）
-            response = model.generate_content(f"「{event_input}」に関連する日本株をリストアップし、市場への影響を分析して")
-            st.session_state.last_result = response.text
-        except Exception as e:
-            st.error(f"分析失敗: {e}")
-            st.session_state.last_result = None
+    if model and event_input:
+        with st.spinner("Geminiが分析中..."):
+            try:
+                # 分析リクエスト
+                response = model.generate_content(f"「{event_input}」について、関連銘柄をリストアップし、客観的に分析して")
+                st.session_state.last_result = response.text
+                st.rerun()
+            except Exception as e:
+                st.error(f"分析失敗: {e}")
+    elif not model:
+        st.error("API接続に失敗しました。キー設定を確認してください。")
 
 if st.button("入力欄をクリア"):
     st.session_state.input_key += 1
     st.rerun()
 
 # --- 結果表示 ---
-if "last_result" in st.session_state and st.session_state.last_result:
+if st.session_state.last_result:
     st.markdown("### 分析結果")
     st.write(st.session_state.last_result)
-    
-    # 【次にやること】ここにパース処理（リスト抽出）を入れれば、株価表に戻ります
