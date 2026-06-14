@@ -3,10 +3,9 @@ import google.generativeai as genai
 import yfinance as yf
 import pandas as pd
 import re
-import time
 
 st.set_page_config(page_title="Market Radar", layout="wide")
-st.title("📡 Market Radar (Efficient Ver)")
+st.title("📡 Market Radar (with Stock Data)")
 
 # API設定
 try:
@@ -33,53 +32,34 @@ with col1:
         if event_input:
             st.write(f"Analyzing: {event_input}...")
             
-            # --- 効率化のキモ：プロンプトを統合 ---
-            # 「[DATA]」と「[ANALYSIS]」というラベルを付けてAIに区別させる
-            prompt = f"""
-            「{event_input}」について分析してください。以下の形式を厳守して回答してください。
+            # プロンプトをより明確に：「名前,コード」の形式を徹底させる
+            prompt = f"「{event_input}」に関連する日本企業を挙げ、必ず「企業名,証券コード(4桁)」の形式でリストアップして。余計な文章は不要。"
+            response = model.generate_content(prompt)
             
-            [DATA]
-            企業名,証券コード(4桁)
-            (この形式でリストアップして。データ以外の解説は不要)
+            # 正規表現で「企業名,コード」のペアを抽出
+            # 日本語（企業名）とカンマと4桁数字を探す
+            matches = re.findall(r'([^,\n]+),(\d{4})', response.text)
             
-            [ANALYSIS]
-            市場や経済への影響をプロの投資家視点で解説してください。
-            """
-            
-            try:
-                response = model.generate_content(prompt)
-                full_text = response.text
-                
-                # [DATA]と[ANALYSIS]で分割
-                data_part = ""
-                analysis_part = ""
-                if "[DATA]" in full_text and "[ANALYSIS]" in full_text:
-                    parts = re.split(r'\[DATA\]|\[ANALYSIS\]', full_text)
-                    data_part = parts[1]
-                    analysis_part = parts[2]
-                
-                # --- 表の表示 ---
+            if matches:
                 st.markdown("### 関連企業の現在株価")
-                matches = re.findall(r'([^,\n]+),(\d{4})', data_part)
+                data = []
+                for name, code in matches:
+                    ticker = yf.Ticker(f"{code}.T")
+                    info = ticker.history(period="1d")
+                    if not info.empty:
+                        price = info['Close'].iloc[-1]
+                        data.append({"企業名": name, "証券コード": code, "現在株価": f"{price:.0f}円"})
                 
-                if matches:
-                    data = []
-                    for name, code in matches:
-                        # yfinance通信の負荷も考慮しつつ取得
-                        ticker = yf.Ticker(f"{code}.T")
-                        info = ticker.history(period="1d")
-                        if not info.empty:
-                            price = info['Close'].iloc[-1]
-                            data.append({"企業名": name.strip(), "証券コード": code, "現在株価": f"{price:.0f}円"})
+                if data:
                     st.table(pd.DataFrame(data))
-                
-                # --- 分析の表示 ---
-                st.markdown("---")
-                st.markdown("### 市場ニュース分析")
-                st.write(analysis_part.strip())
-                
-            except Exception as e:
-                st.error("分析に失敗しました。少し時間を置いて再試行してください。")
+                else:
+                    st.write("株価データが見つかりませんでした。")
+            else:
+                st.write("リスト形式が見つかりませんでした。")
+            
+            st.markdown("---")
+            st.markdown("### 詳細分析")
+            st.write(response.text)
 
 with col2:
     if st.button("クリア", on_click=clear_input):
