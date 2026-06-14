@@ -5,15 +5,22 @@ import re
 
 # ページ設定
 st.set_page_config(layout="wide")
-st.title("📡 Market Radar (Final Operation Version)")
+st.title("📡 Market Radar (Auto-Model Detection)")
 
-# --- 安全な接続処理 ---
+# --- 確実な接続処理 ---
 @st.cache_resource
 def get_model():
     try:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-        # Gemini 1.5 Flash を指定
-        return genai.GenerativeModel('gemini-1.5-flash')
+        # 利用可能なモデル一覧を取得
+        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        if not models:
+            raise Exception("利用可能なモデルが見つかりません。")
+        
+        # モデル名に 'gemini-1.5' を含むものを優先、なければ最初に見つかったものを使用
+        target_model = next((m for m in models if 'gemini-1.5' in m), models[0])
+        st.sidebar.info(f"使用中モデル: {target_model}")
+        return genai.GenerativeModel(target_model)
     except Exception as e:
         st.error(f"API接続エラー: {e}")
         return None
@@ -33,10 +40,9 @@ with col1:
         if model and event_input:
             with st.spinner("Geminiが分析中..."):
                 try:
-                    # 厳密な出力形式を指定
                     prompt = (
                         f"ニュース「{event_input}」について、以下の形式で出力してください。\n\n"
-                        "[LIST]\n企業名,証券コード(4桁)\n(複数あれば改行)\n\n"
+                        "[LIST]\n企業名,証券コード(4桁)\n\n"
                         "[COMMENT]\n市場への影響を200文字以内で客観的に分析してください。"
                     )
                     response = model.generate_content(prompt)
@@ -53,9 +59,8 @@ with col2:
 # --- 結果表示とパース処理 ---
 if st.session_state.last_result:
     result_text = st.session_state.last_result
-    
-    # [LIST]タグの中身を抽出して表にする
     list_match = re.search(r'\[LIST\](.*?)(?=\[COMMENT\]|$)', result_text, re.DOTALL)
+    
     if list_match:
         lines = list_match.group(1).strip().split('\n')
         data = []
@@ -66,12 +71,10 @@ if st.session_state.last_result:
                 code = re.sub(r'[^0-9]', '', parts[1]).strip()
                 if name and code:
                     data.append({"企業名": name, "証券コード": code})
-        
         if data:
             st.markdown("### 関連企業のリスト")
             st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
 
-    # [COMMENT]タグを表示
     comment_match = re.search(r'\[COMMENT\](.*)', result_text, re.DOTALL)
     if comment_match:
         st.markdown("### 市場分析コメント")
