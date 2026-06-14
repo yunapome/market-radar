@@ -7,63 +7,36 @@ import re
 st.set_page_config(layout="wide")
 st.title("📡 Market Radar")
 
-# --- 接続設定 ---
-@st.cache_resource
-def get_model():
-    try:
-        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-        return genai.GenerativeModel('gemini-1.5-flash')
-    except Exception:
-        return None
+# --- 接続処理（モデル名を 'gemini-1.5-flash' に統一） ---
+try:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    # 接続モデルを安定版に指定
+    model = genai.GenerativeModel('gemini-1.5-flash')
+except Exception as e:
+    st.error(f"接続エラー: {e}")
 
-model = get_model()
-
-# --- 状態管理 ---
+# --- UIとクリア処理 ---
 if "input_key" not in st.session_state: st.session_state.input_key = 0
-if "last_result" not in st.session_state: st.session_state.last_result = None
-
-# --- UI構築 ---
 event_input = st.text_input("分析したいニュースやキーワードを入力", key=f"input_{st.session_state.input_key}")
 
-col1, col2 = st.columns([1, 4])
-with col1:
-    if st.button("市場分析スタート"):
-        if model and event_input:
-            with st.spinner("Geminiが分析中..."):
-                try:
-                    prompt = f"ニュース「{event_input}」について、[LIST]企業名,コード の形式で出力してください。"
-                    st.session_state.last_result = model.generate_content(prompt).text
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"分析失敗: {e}")
+if st.button("市場分析スタート"):
+    if event_input:
+        # ここでAPIを呼び出しますが、失敗してもアプリが落ちないようにガードします
+        try:
+            # 分析プロンプト（必要に応じて調整してください）
+            response = model.generate_content(f"「{event_input}」に関連する日本株をリストアップし、市場への影響を分析して")
+            st.session_state.last_result = response.text
+        except Exception as e:
+            st.error(f"分析失敗: {e}")
+            st.session_state.last_result = None
 
-with col2:
-    if st.button("入力欄をクリア"):
-        st.session_state.input_key += 1
-        st.rerun()
+if st.button("入力欄をクリア"):
+    st.session_state.input_key += 1
+    st.rerun()
 
-# --- 結果表示とパース処理 ---
-if st.session_state.last_result:
-    list_match = re.search(r'\[LIST\](.*?)(?=\[COMMENT\]|$)', st.session_state.last_result, re.DOTALL)
-    if list_match:
-        lines = list_match.group(1).strip().split('\n')
-        data = []
-        for line in lines:
-            parts = line.split(',')
-            if len(parts) >= 2:
-                name = re.sub(r'[\(\)0-9.T]', '', parts[0]).strip()
-                code = re.sub(r'[^0-9]', '', parts[1]).strip()
-                if name and code:
-                    # ここに株価のダミーデータを付与
-                    data.append({
-                        "企業名": name, "証券コード": code, 
-                        "株価": "3,000円", "前日比": "+1.5%", "トレンド": "↑"
-                    })
-        
-        st.markdown("### 関連企業の現在株価")
-        st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
-
-    comment_match = re.search(r'\[COMMENT\](.*)', st.session_state.last_result, re.DOTALL)
-    if comment_match:
-        st.markdown("### 市場分析コメント")
-        st.write(comment_match.group(1).strip())
+# --- 結果表示 ---
+if "last_result" in st.session_state and st.session_state.last_result:
+    st.markdown("### 分析結果")
+    st.write(st.session_state.last_result)
+    
+    # 【次にやること】ここにパース処理（リスト抽出）を入れれば、株価表に戻ります
