@@ -28,18 +28,22 @@ event_input = st.text_input(
     key="input_text"
 )
 
-# ボタンの配置を逆転（Analyzeを左、クリアを右）
+# ボタンの配置
 col1, col2 = st.columns([0.2, 0.8])
 
 with col1:
-    # Analyzeボタンを左に配置
     if st.button("市場分析スタート"):
         if not event_input:
             st.warning("内容を入力してください。")
         else:
             st.write(f"Analyzing: {event_input}...")
             try:
-                prompt = f"あなたはプロの投資家です。以下のキーワードについて、市場への影響やリスク・チャンスを分析して教えてください：{event_input}"
+                # --- ここを強化しました ---
+                # 「銘柄名と証券コードを必ず出す」という強いルールを追加
+                prompt = (
+                    f"あなたはプロの投資家です。{event_input}について、市場への影響やリスク・チャンスを分析してください。"
+                    "もし分析に日本の企業が関わる場合、必ずその『銘柄名』と『証券コード』をリスト形式で明記してください。"
+                )
                 response = model.generate_content(prompt)
                 st.markdown("### Analysis Result")
                 st.write(response.text)
@@ -47,6 +51,5 @@ with col1:
                 st.error(f"分析中にエラーが発生しました: {e}")
 
 with col2:
-    # クリアボタンを右に配置
     if st.button("クリア", on_click=clear_input):
         st.rerun()
