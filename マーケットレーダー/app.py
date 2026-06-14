@@ -2,7 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 
 st.set_page_config(page_title="Market Radar", layout="wide")
-st.title("📡 Market Radar (Gemini Ver)")
+st.title("📡 Market Radar")
 
 # API設定
 try:
@@ -28,23 +28,25 @@ event_input = st.text_input(
     key="input_text"
 )
 
-# ボタンの配置
+# ボタンの配置を逆転（Analyzeを左、クリアを右）
 col1, col2 = st.columns([0.2, 0.8])
-with col1:
-    if st.button("クリア", on_click=clear_input):
-        st.rerun()
 
-with col2:
-    if st.button("Analyze"):
+with col1:
+    # Analyzeボタンを左に配置
+    if st.button("市場分析スタート"):
         if not event_input:
             st.warning("内容を入力してください。")
         else:
             st.write(f"Analyzing: {event_input}...")
             try:
-                # 投資家の視点を追加したプロンプト
                 prompt = f"あなたはプロの投資家です。以下のキーワードについて、市場への影響やリスク・チャンスを分析して教えてください：{event_input}"
                 response = model.generate_content(prompt)
                 st.markdown("### Analysis Result")
                 st.write(response.text)
             except Exception as e:
                 st.error(f"分析中にエラーが発生しました: {e}")
+
+with col2:
+    # クリアボタンを右に配置
+    if st.button("クリア", on_click=clear_input):
+        st.rerun()
