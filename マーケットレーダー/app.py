@@ -44,7 +44,7 @@ if st.button("Analyze"):
         else:
             with st.spinner("分析中..."):
                 try:
-                    # 修正後のプロンプト定義部分
+                   # 修正後のプロンプト定義部分
                     prompt = (
                         f"ニュース「{event_input}」について、以下の形式で出力してください。\n"
                         "余計な前置きは不要です。\n\n"
