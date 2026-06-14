@@ -1,51 +1,78 @@
 import streamlit as st
+import google.generativeai as genai
 import pandas as pd
 import re
 
 # ページ設定
 st.set_page_config(layout="wide")
-st.title("📡 Market Radar")
+st.title("📡 Market Radar (Final Operation Version)")
 
-# セッション状態の初期化
-if "input_key" not in st.session_state:
-    st.session_state.input_key = 0
-if "last_result" not in st.session_state:
-    st.session_state.last_result = None
-if "last_comment" not in st.session_state:
-    st.session_state.last_comment = None
+# --- 安全な接続処理 ---
+@st.cache_resource
+def get_model():
+    try:
+        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+        # Gemini 1.5 Flash を指定
+        return genai.GenerativeModel('gemini-1.5-flash')
+    except Exception as e:
+        st.error(f"API接続エラー: {e}")
+        return None
 
-# 入力フォーム（keyを動的に変えることで、入力欄だけをクリアするテクニック）
+model = get_model()
+
+# --- 状態管理 ---
+if "input_key" not in st.session_state: st.session_state.input_key = 0
+if "last_result" not in st.session_state: st.session_state.last_result = None
+
+# --- UI構築 ---
 event_input = st.text_input("分析したいニュースやキーワードを入力", key=f"input_{st.session_state.input_key}")
 
-# ボタンの配置
-col1, col2 = st.columns([1, 10])
+col1, col2 = st.columns([1, 4])
 with col1:
     if st.button("市場分析スタート"):
-        if event_input:
-            # ここにAPIの処理を戻します。今はダミーで確実に動くようにしています。
-            st.session_state.last_result = "トヨタ自動車,7203\nソニーグループ,6758\n日立製作所,6501"
-            st.session_state.last_comment = f"「{event_input}」について、客観的な市場分析を行いました。特異な変動は見られません。"
-            st.rerun()
+        if model and event_input:
+            with st.spinner("Geminiが分析中..."):
+                try:
+                    # 厳密な出力形式を指定
+                    prompt = (
+                        f"ニュース「{event_input}」について、以下の形式で出力してください。\n\n"
+                        "[LIST]\n企業名,証券コード(4桁)\n(複数あれば改行)\n\n"
+                        "[COMMENT]\n市場への影響を200文字以内で客観的に分析してください。"
+                    )
+                    response = model.generate_content(prompt)
+                    st.session_state.last_result = response.text
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"分析失敗: {e}")
 
 with col2:
     if st.button("入力欄をクリア"):
-        # キーを更新して入力欄を強制リセット
         st.session_state.input_key += 1
         st.rerun()
 
-# 結果の表示（analyzeボタンを押した後だけ表示される）
+# --- 結果表示とパース処理 ---
 if st.session_state.last_result:
-    st.markdown("---")
-    st.markdown("### 関連企業の現在株価")
+    result_text = st.session_state.last_result
     
-    # データを解析して表にする
-    rows = []
-    for line in st.session_state.last_result.split('\n'):
-        if ',' in line:
-            name, code = line.split(',')
-            rows.append({"企業名": name, "証券コード": code, "詳細": "分析完了"})
-    
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-    
-    st.markdown("### 市場分析コメント")
-    st.write(st.session_state.last_comment)
+    # [LIST]タグの中身を抽出して表にする
+    list_match = re.search(r'\[LIST\](.*?)(?=\[COMMENT\]|$)', result_text, re.DOTALL)
+    if list_match:
+        lines = list_match.group(1).strip().split('\n')
+        data = []
+        for line in lines:
+            parts = line.split(',')
+            if len(parts) >= 2:
+                name = re.sub(r'[\(\)0-9.T]', '', parts[0]).strip()
+                code = re.sub(r'[^0-9]', '', parts[1]).strip()
+                if name and code:
+                    data.append({"企業名": name, "証券コード": code})
+        
+        if data:
+            st.markdown("### 関連企業のリスト")
+            st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
+
+    # [COMMENT]タグを表示
+    comment_match = re.search(r'\[COMMENT\](.*)', result_text, re.DOTALL)
+    if comment_match:
+        st.markdown("### 市場分析コメント")
+        st.write(comment_match.group(1).strip())
