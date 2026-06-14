@@ -1,9 +1,18 @@
 import streamlit as st
+import google.generativeai as genai
 import pandas as pd
 import re
 
+# ページ設定
 st.set_page_config(layout="wide")
-st.title("📡 Market Radar (Robust Ver)")
+st.title("📡 Market Radar (Official API Version)")
+
+# API設定（StreamlitのSecretsから読み込み）
+try:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    model = genai.GenerativeModel('gemini-1.5-flash')
+except Exception as e:
+    st.error("APIキーの設定を確認してください。")
 
 # 入力欄のキーを管理する変数
 if "input_key" not in st.session_state:
@@ -12,30 +21,45 @@ if "input_key" not in st.session_state:
 # 入力欄（キーに変数を使用）
 event_input = st.text_input("分析したいニュースやキーワードを入力", key=f"input_{st.session_state.input_key}")
 
-# 分析ボタン（ラベル変更）
+# 市場分析スタートボタン
 if st.button("市場分析スタート"):
     if event_input:
-        # ダミーデータのセット
-        st.session_state.result = "トヨタ自動車,7203\nソニーグループ,6758\n日立製作所,6501"
-        st.session_state.comment = f"ニュース「{event_input}」に対する客観的な分析です。市場への直接的な影響は限定的と推察されます。"
+        with st.spinner("Geminiが市場を分析中..."):
+            prompt = (
+                f"ニュース「{event_input}」について、以下の形式で出力してください。"
+                "余計な前置きは不要です。\n\n"
+                "[LIST]\n"
+                "企業名,証券コード(4桁)\n"
+                "(複数あれば改行)\n\n"
+                "[COMMENT]\n"
+                "市場への影響を客観的かつ論理的に分析し、200文字以内で要約してください。"
+                "感情的・扇動的な表現は排除してください。"
+            )
+            response = model.generate_content(prompt)
+            text = response.text
+            
+            # パース処理
+            list_match = re.search(r'\[LIST\](.*?)\[COMMENT\]', text, re.DOTALL)
+            comment_match = re.search(r'\[COMMENT\](.*)', text, re.DOTALL)
+            
+            st.session_state.result = list_match.group(1).strip() if list_match else ""
+            st.session_state.comment = comment_match.group(1).strip() if comment_match else "分析コメントを取得できませんでした。"
+            st.rerun()
 
 # 入力欄クリアボタン
 if st.button("入力欄をクリア"):
     st.session_state.input_key += 1
     st.rerun()
 
-# 結果表示（Analyzeを押すと表示され、入力欄をクリアしても消えない）
+# 結果表示
 if "result" in st.session_state:
     matches = re.findall(r'([^,\n]+),(\d{4})', st.session_state.result)
     if matches:
         st.markdown("### 関連企業の現在株価")
         data = []
         for name, code in matches:
-            data.append({
-                "企業名": name.strip(), "証券コード": code, 
-                "現在株価": "3000円", "前日比": "+1.20%",
-                "トレンド": "↑"
-            })
+            # 実際にはここでyfinanceなどから株価を取得すると完璧です
+            data.append({"企業名": name.strip(), "証券コード": code, "詳細": "分析完了"})
         st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
     
     if "comment" in st.session_state:
