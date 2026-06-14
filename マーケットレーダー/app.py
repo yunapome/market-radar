@@ -10,7 +10,7 @@ st.title("📡 Market Radar (Official API Version)")
 # API設定（StreamlitのSecretsから読み込み）
 try:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-pro')
 except Exception as e:
     st.error("APIキーの設定を確認してください。")
 
