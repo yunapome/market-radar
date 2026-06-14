@@ -32,6 +32,9 @@ event_input = st.text_input("分析したいニュースやキーワードを入
 
 # 分析ボタン
 if st.button("Analyze"):
+    # 実際にはAPIを叩かず、テスト用の固定値を設定する
+    st.session_state.analysis_result = "トヨタ自動車,7203\nソニーグループ,6758\n日立製作所,6501"
+    st.rerun() # 強制的に再読み込みして結果を表示させる
     if event_input:
         # キャッシュ確認
         if event_input in st.session_state.cache_results:
