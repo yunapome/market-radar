@@ -8,7 +8,7 @@ st.title("📡 Market Radar (Gemini Ver)")
 
 # 1. API設定をシンプルにする
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 # 2. 入力コンソール
 if "event_input" not in st.session_state:
