@@ -17,7 +17,7 @@ except Exception as e:
     st.error("API設定が読み込めません。secretsを確認してください。")
     st.stop()
 
-# --- セッションステートの初期化 ---
+# セッションステートの初期化
 if "analysis_result" not in st.session_state:
     st.session_state.analysis_result = None
 if "cache_results" not in st.session_state:
@@ -32,30 +32,24 @@ event_input = st.text_input("分析したいニュースやキーワードを入
 
 # 分析ボタン
 if st.button("Analyze"):
-    # 実際にはAPIを叩かず、テスト用の固定値を設定する
-    st.session_state.analysis_result = "トヨタ自動車,7203\nソニーグループ,6758\n日立製作所,6501"
-    st.rerun() # 強制的に再読み込みして結果を表示させる
     if event_input:
-        # キャッシュ確認
         if event_input in st.session_state.cache_results:
             st.session_state.analysis_result = st.session_state.cache_results[event_input]
             st.info("キャッシュから結果を表示しました。")
         else:
             with st.spinner("Analyzing..."):
                 try:
+                    # ニュースから企業を抽出
                     prompt = f"「{event_input}」に関連する日本企業を挙げ、必ず「企業名,証券コード(4桁)」の形式でリストアップして。余計な文章は不要。"
                     response = model.generate_content(prompt)
-                    
-                    # 結果を保存
                     st.session_state.analysis_result = response.text
                     st.session_state.cache_results[event_input] = response.text
                 except Exception as e:
                     st.error("APIの通信制限かエラーが発生しました。少し時間を置いて再試行してください。")
 
-# 結果の表示（ボタンの外側で制御）
+# 結果の表示
 if st.session_state.analysis_result:
     result_text = st.session_state.analysis_result
-    # CSV形式の抽出（カンマ区切りで企業名と4桁コードを取得）
     matches = re.findall(r'([^,\n]+),(\d{4})', result_text)
     
     if matches:
@@ -63,17 +57,38 @@ if st.session_state.analysis_result:
         data = []
         for name, code in matches:
             try:
-                # 堅牢な株価取得処理
                 ticker = yf.Ticker(f"{code}.T")
-                info = ticker.history(period="1d")
-                if not info.empty:
-                    price = info['Close'].iloc[-1]
-                    data.append({"企業名": name.strip(), "証券コード": code, "現在株価": f"{price:.0f}円"})
+                # 比較のために2日分取得
+                info = ticker.history(period="2d")
+                if len(info) >= 2:
+                    current_price = info['Close'].iloc[-1]
+                    prev_close = info['Close'].iloc[-2]
+                    
+                    # 前日比の計算
+                    change_pct = ((current_price - prev_close) / prev_close) * 100
+                    
+                    # トレンド判定
+                    if change_pct > 0:
+                        mark = "↑"
+                    elif change_pct < 0:
+                        mark = "↓"
+                    else:
+                        mark = "-"
+                    
+                    data.append({
+                        "企業名": name.strip(), 
+                        "証券コード": code, 
+                        "現在株価": f"{current_price:.0f}円",
+                        "前日比": f"{change_pct:+.2f}%",
+                        "トレンド": mark
+                    })
             except Exception:
-                continue # 1社失敗しても全体は止まらない
+                continue
         
         if data:
-            st.table(pd.DataFrame(data))
+            # データの表示（st.dataframeでより見やすく）
+            df = pd.DataFrame(data)
+            st.dataframe(df, use_container_width=True, hide_index=True)
     
     st.markdown("---")
     st.markdown("### 詳細分析結果")
