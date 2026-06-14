@@ -4,19 +4,29 @@ import google.generativeai as genai
 st.set_page_config(page_title="Market Radar", layout="wide")
 st.title("📡 Market Radar (Gemini Ver)")
 
-# API設定
-genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Configure Gemini
+try:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+    genai.configure(api_key=api_key)
+    
+    # モデル名を指定せず、代わりに利用可能なモデル一覧から自動で探す
+    models = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    model = genai.GenerativeModel(models[0].name) # 使えるモデルの最初のものを自動選択
+except Exception as e:
+    st.error(f"Configuration Error: {e}")
+    st.stop()
 
-# 成功していた時のシンプルな入力欄
-event_input = st.text_input("分析したいニュースや銘柄を入力してください")
+event_input = st.text_input("Enter a news event to analyze")
 
-# 成功していた時のシンプルな分析ボタン
 if st.button("Analyze"):
     if not event_input:
-        st.warning("内容を入力してください。")
+        st.warning("Please enter an event.")
     else:
         st.write(f"Analyzing: {event_input}...")
-        response = model.generate_content(event_input)
-        st.markdown("### Analysis Result")
-        st.write(response.text)
+        try:
+            # プロンプトの投げ方を少しだけシンプルに
+            response = model.generate_content(event_input)
+            st.markdown("### Analysis Result")
+            st.write(response.text)
+        except Exception as e:
+            st.error(f"Analysis Error: {e}")
