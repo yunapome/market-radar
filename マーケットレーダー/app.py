@@ -45,7 +45,8 @@ with col2:
         else:
             st.write(f"Analyzing: {event_input}...")
             try:
-                response = model.generate_content(event_input)
+                prompt = f"あなたはプロの投資家です。以下のニュースやキーワードが、市場や関連企業の株価にどう影響するかを分析し、リスクとチャンスの観点で短くまとめてください：{event_input}"
+response = model.generate_content(prompt)
                 st.markdown("### Analysis Result")
                 st.write(response.text)
             except Exception as e:
