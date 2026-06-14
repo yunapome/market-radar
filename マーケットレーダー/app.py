@@ -1,29 +1,31 @@
 import streamlit as st
-import anthropic
+import google.generativeai as genai
 
+# Page Configuration
 st.set_page_config(page_title="Market Radar", layout="wide")
-st.title("📡 Market Radar")
+st.title("📡 Market Radar (Gemini Ver)")
 
+# Configure Gemini
 try:
-    api_key = st.secrets["ANTHROPIC_API_KEY"]
+    api_key = st.secrets["GOOGLE_API_KEY"]
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-1.5-flash')
 except KeyError:
     st.error("API Key not found in Secrets.")
     st.stop()
 
-event_input = st.text_input("Enter a news event")
+# User Input
+event_input = st.text_input("Enter a news event to analyze")
 
 if st.button("Analyze"):
     if not event_input:
         st.warning("Please enter an event.")
     else:
-        st.write("Analyzing...")
+        st.write(f"Analyzing: {event_input}...")
         try:
-            client = anthropic.Anthropic(api_key=api_key)
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=1000,
-                messages=[{"role": "user", "content": f"Analyze: {event_input}"}]
-            )
-            st.write(response.content[0].text)
+            # Generate content
+            response = model.generate_content(f"Analyze the market reaction to: {event_input}")
+            st.markdown("### Analysis Result")
+            st.write(response.text)
         except Exception as e:
             st.error(f"Error: {e}")
