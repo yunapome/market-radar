@@ -9,7 +9,7 @@ st.title("📡 Market Radar (Gemini Ver)")
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('models/gemini-1.5-flash')
 except KeyError:
     st.error("API Key not found in Secrets.")
     st.stop()
