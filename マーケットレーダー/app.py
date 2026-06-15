@@ -21,25 +21,26 @@ def get_model():
 
 model = get_model()
 
-# --- リアルタイム株価取得関数 ---
-def get_stock_data(code):
-    try:
-        ticker = yf.Ticker(f"{code}.T")
-        hist = ticker.history(period="2d") # 前日比計算のために2日分取得
-        if len(hist) < 2: return None, None, "N/A"
-        
-        curr = hist['Close'].iloc[-1]
-        prev = hist['Close'].iloc[-2]
-        change_pct = ((curr - prev) / prev) * 100
-        trend = "↑" if curr >= prev else "↓"
-        return round(curr, 1), round(change_pct, 2), trend
-    except:
-        return None, None, "N/A"
+# --- 状態管理 ---
+if "input_key" not in st.session_state: st.session_state.input_key = 0
 
-# --- UIと状態管理 ---
-event_input = st.text_input("分析したいニュースやキーワードを入力")
+# --- UI構築 ---
+event_input = st.text_input("分析したいニュースやキーワードを入力", key=f"input_{st.session_state.input_key}")
 
-if st.button("市場分析スタート"):
+# ボタンを横並びに配置
+col1, col2 = st.columns(2)
+with col1:
+    start_btn = st.button("市場分析スタート")
+with col2:
+    clear_btn = st.button("入力欄をクリア")
+
+if clear_btn:
+    st.session_state.input_key += 1
+    # データを消去
+    if "data" in st.session_state: del st.session_state.data
+    st.rerun()
+
+if start_btn:
     if model and event_input:
         with st.spinner("Geminiが分析中..."):
             prompt = (f"「{event_input}」に関連する日本株を5社挙げてください。\n"
@@ -54,16 +55,22 @@ if st.button("市場分析スタート"):
                 if ',' in line and not line.startswith('['):
                     parts = line.split(',')
                     name, code = parts[0].strip(), parts[1].strip()
-                    price, change, trend = get_stock_data(code)
-                    if price:
-                        data.append({"企業名": name, "証券コード": code, "株価": price, "前日比%": change, "トレンド": trend})
+                    # 株価取得処理
+                    ticker = yf.Ticker(f"{code}.T")
+                    hist = ticker.history(period="2d")
+                    if len(hist) >= 2:
+                        curr = hist['Close'].iloc[-1]
+                        prev = hist['Close'].iloc[-2]
+                        change_pct = ((curr - prev) / prev) * 100
+                        trend = "↑" if curr >= prev else "↓"
+                        data.append({"企業名": name, "証券コード": code, "株価": round(curr, 1), "前日比%": round(change_pct, 2), "トレンド": trend})
             
             st.session_state.data = pd.DataFrame(data)
             st.session_state.comment = re.split(r'\[COMMENT\]', res)[-1]
             st.rerun()
 
 # --- 表示 ---
-if "data" in st.session_state:
+if "data" in st.session_state and not st.session_state.data.empty:
     st.dataframe(st.session_state.data, use_container_width=True, hide_index=True)
     st.write("### 市場分析コメント")
     st.write(st.session_state.comment)
