@@ -378,6 +378,20 @@ def main():
     _local_storage_bridge()
 
     st.title("📡 Market Radar Pro")
+    st.markdown("""
+    <style>
+    div[data-testid="stButton"] button[kind="primary"] {
+        background-color: #b0e0e6 !important;
+        border-color: #b0e0e6 !important;
+        color: #1a1a1a !important;
+    }
+    div[data-testid="stButton"] button[kind="primary"]:hover {
+        background-color: #8ecfdb !important;
+        border-color: #8ecfdb !important;
+        color: #1a1a1a !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     model = get_gemini_model()
     if model is None:
