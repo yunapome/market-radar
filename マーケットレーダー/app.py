@@ -453,7 +453,9 @@ def main():
                 return "color: #e74c3c; font-weight: bold"
             return ""
 
-        styled = df.style.applymap(color_trend, subset=["トレンド"])
+        # pandas 2.1+ では applymap が廃止され map に変更
+        style_fn = df.style.map if hasattr(df.style, "map") else df.style.applymap
+        styled = style_fn(color_trend, subset=["トレンド"])
         st.dataframe(styled, use_container_width=True, hide_index=True)
 
         if st.session_state.get("comment"):
